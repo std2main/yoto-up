@@ -127,7 +127,14 @@ class Card(BaseModel):
     updatedAt: Optional[str] = None
     userId: Optional[str] = None
 
-    def display_card(self, truncate_fields_limit: int | None = 50, render_icons: bool = False, api: object | None = None, render_method: str = "braille", braille_dims: tuple[int, int] = (8, 4), braille_x_scale: int | None = None, include_chapters: bool = True ):
+    def display_card(self, truncate_fields_limit: int | None = 50, render_icons: bool = False, api: object | None = None, render_method: str = "braille", braille_dims: tuple[int, int] = (8, 4), braille_x_scale: int | None = None, include_chapters: bool = True, local_mapping: dict | None = None ):
+        if local_mapping is None:
+            try:
+                from yoto_up.local_mapping import load_local_mapping
+                local_mapping = load_local_mapping()
+            except Exception:
+                local_mapping = {}
+
         def trunc(val):
             if truncate_fields_limit is None or truncate_fields_limit <= 0:
                 return val
@@ -325,6 +332,10 @@ class Card(BaseModel):
                                 f"[green]Key:[/] {getattr(track, 'key', '')}",
                                 f"[yellow]Overlay Label:[/] {getattr(track, 'overlayLabel', '')}"
                             ]
+                            
+                            if local_mapping and track.trackUrl in local_mapping:
+                                track_details.append(f"[bold italic white]Local File:[/] {local_mapping[track.trackUrl]}")
+
                             icon_lines = track_icon_inline.splitlines() if track_icon_inline else []
 
                             # Pad track_details if needed so its length >= icon_lines

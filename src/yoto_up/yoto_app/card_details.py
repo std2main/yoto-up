@@ -36,6 +36,12 @@ def make_show_card_details(
     """
 
     def show_card_details(e, card, preview_path: Path | None = None):
+        try:
+            from yoto_up.local_mapping import load_local_mapping
+            local_mapping = load_local_mapping()
+        except Exception:
+            local_mapping = {}
+
         def refresh_icon_cache(ev=None):
             api = api_ref.get("api")
             try:
@@ -342,6 +348,15 @@ def make_show_card_details(
                                     ]
                                 )
                             )
+                            if local_mapping and tr_url in local_mapping:
+                                row.controls.append(
+                                    ft.Row(
+                                        [
+                                            ft.Container(width=20),
+                                            ft.Text(f"Local: {local_mapping[tr_url]}", size=11, selectable=True, color=ft.Colors.GREEN_700),
+                                        ]
+                                    )
+                                )
 
                         items.append(row)
                     else:
@@ -1747,10 +1762,37 @@ Renumbering keys will assign sequential keys to all tracks.
 
             dialog_actions.append(ft.TextButton("Restore this version", on_click=make_restore_from_preview()))
 
+        def do_match_local(ev):
+            def on_dialog_result(res: ft.FilePickerResultEvent):
+                if not res.path:
+                    if picker in page.overlay: page.overlay.remove(picker)
+                    page.update()
+                    return
+                try:
+                    from yoto_up.local_mapping import auto_match_card
+                    from yoto_up.models import Card as YotoCard
+                    card_model = YotoCard.model_validate(c)
+                    new_matches = auto_match_card(card_model, res.path)
+                    if new_matches:
+                        show_snack(f"Found {len(new_matches)} new matches! Reopen dialog to refresh.")
+                    else:
+                        show_snack("No matches found in directory.")
+                except Exception as ex:
+                    show_snack(f"Matching error: {ex}", error=True)
+                    logger.error(f"Mapping error: {ex}")
+                if picker in page.overlay: page.overlay.remove(picker)
+                page.update()
+
+            picker = ft.FilePicker(on_result=on_dialog_result)
+            page.overlay.append(picker)
+            page.update()
+            picker.get_directory_path("Select music folder to match")
+
         dialog = ft.AlertDialog(
             title=title_row,
             content=dialog_content,
             actions=dialog_actions + [
+                ft.TextButton("Match Local Folder", on_click=do_match_local),
                 ft.TextButton(
                     "Edit",
                     on_click=lambda ev: (

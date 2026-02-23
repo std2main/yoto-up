@@ -43,6 +43,7 @@ STAMPS_DIR = _BASE_DATA_DIR / ".stamps"
 USER_ICONS_DIR = _BASE_DATA_DIR / ".user_icons"
 VERSIONS_DIR = _BASE_DATA_DIR / ".card_versions"
 PLAYLISTS_FILE = _BASE_DATA_DIR / "playlists.json"
+LOCAL_TRACKS_FILE = _BASE_DATA_DIR / "local_tracks.json"
 
 # Convenience helpers
 def ensure_parents(path: Path):
@@ -144,6 +145,7 @@ __all__ = [
     "STAMPS_DIR",
     "VERSIONS_DIR",
     "PLAYLISTS_FILE",
+    "LOCAL_TRACKS_FILE",
     "FLET_APP_STORAGE_DATA",
     "ensure_parents",
     "atomic_write",

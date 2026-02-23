@@ -797,6 +797,14 @@ class YotoAPI:
             if progress and transcode_task_id is not None:
                 progress.update(transcode_task_id, completed=max_attempts, description="Transcode timed out")
             raise Exception("Transcoding timed out.")
+            
+        if "transcodedSha256" in transcoded_audio:
+            try:
+                from yoto_up.local_mapping import add_mapping
+                add_mapping(f"yoto:#{transcoded_audio['transcodedSha256']}", audio_path)
+            except Exception as e:
+                logger.error(f"Failed to save local mapping for {audio_path}: {e}")
+                
         return transcoded_audio
 
     async def upload_and_transcode_many_async(
@@ -1456,6 +1464,14 @@ class YotoAPI:
             logger.info(f"Uploading audio to: {audio_upload_url}")
             self.upload_audio_file(audio_upload_url, audio_bytes)
         transcoded_audio = self.poll_for_transcoding(upload_id, loudnorm, poll_interval, max_attempts, show_progress)
+        
+        if transcoded_audio and "transcodedSha256" in transcoded_audio:
+            try:
+                from yoto_up.local_mapping import add_mapping
+                add_mapping(f"yoto:#{transcoded_audio['transcodedSha256']}", audio_path)
+            except Exception as e:
+                logger.error(f"Failed to save local mapping for {audio_path}: {e}")
+                
         return transcoded_audio
 
     def refresh_public_and_user_icons(self, show_in_console: bool = False, refresh_cache: bool = True):

@@ -2051,6 +2051,33 @@ def expand_all_tracks(card_id: str):
 
 
 @app.command()
+def match_local(
+    card_id: str,
+    local_dir: str = typer.Argument(..., help="Path to local directory to match tracks against"),
+):
+    """Auto-match Yoto card tracks to local audio files by duration and title."""
+    API = get_api()
+    card = API.get_card(card_id)
+    if not card:
+        rprint(f"[bold red]Card {card_id} not found.[/bold red]")
+        return
+    rprint(f"[bold cyan]Scanning directory '{local_dir}' for matches to card '{card.title}'...[/bold cyan]")
+    
+    try:
+        from yoto_up.local_mapping import auto_match_card
+        new_matches = auto_match_card(card, local_dir)
+        
+        if new_matches:
+            rprint(f"[bold green]Found {len(new_matches)} new matches![/bold green]")
+            for url, path in new_matches.items():
+                rprint(f"  [magenta]{url}[/] -> [white]{path}[/]")
+        else:
+            rprint("[yellow]No new matches found.[/yellow]")
+    except Exception as e:
+        rprint(f"[bold red]Error matching local files: {e}[/bold red]")
+
+
+@app.command()
 def gui():
     """Launch the GUI application."""
     # Try to start the Flet GUI by importing the local `gui` module and

@@ -25,7 +25,7 @@ dependencies = [
   "beautifulsoup4>=4.9.0",
   "mutagen>=1.45.1",
   "textual>=0.2.0",
-  "pynput",
+# "pynput",
   "numpy>=1.25",
   "matplotlib>=3.7",
   "typer>=0.19.0",

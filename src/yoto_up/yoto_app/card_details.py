@@ -349,12 +349,105 @@ def make_show_card_details(
                                 )
                             )
                             if local_mapping and tr_url in local_mapping:
+                                local_p = local_mapping[tr_url]
+                                
+                                def _open_local_path(ev, path_str: str, folder_only: bool = False):
+                                    import subprocess
+                                    import sys
+                                    import os
+                                    try:
+                                        p = path_str if not folder_only else os.path.dirname(path_str)
+                                        if sys.platform.startswith('darwin'):
+                                            subprocess.Popen(['open', p])
+                                        elif sys.platform.startswith('win'):
+                                            subprocess.Popen(['explorer', p] if folder_only else ['start', '', p], shell=True)
+                                        else:
+                                            subprocess.Popen(['xdg-open', p])
+                                        logger.info(f"Opened local path: {p}")
+                                    except Exception as ex:
+                                        logger.error(f"Failed to open local path {p}: {ex}")
+                                        show_snack(f"Failed to open path: {ex}", error=True)
+
+                                def _play_local_track(ev, path_str: str):
+                                    import os
+                                    import shutil
+                                    from pathlib import Path
+                                    import flet as ft
+                                    from yoto_up.gui import start_preview_server_if_needed
+                                    base_url = start_preview_server_if_needed('.tmp_trim/previews')
+                                    if not base_url:
+                                        show_snack("Failed to start local audio server", error=True)
+                                        return
+                                    
+                                    try:
+                                        # Hardlink/copy into the server directory 
+                                        preview_dir = Path('.tmp_trim/previews')
+                                        preview_dir.mkdir(parents=True, exist_ok=True)
+                                        
+                                        # Use a predictable name to avoid runaway storage, but unique enough
+                                        import hashlib
+                                        safe_name = hashlib.md5(path_str.encode()).hexdigest() + Path(path_str).suffix
+                                        serve_path = preview_dir / safe_name
+                                        
+                                        # Link or copy
+                                        if not serve_path.exists():
+                                            try:
+                                                os.link(path_str, serve_path)
+                                            except Exception:
+                                                shutil.copy2(path_str, serve_path)
+                                                
+                                        # Create or update audio control
+                                        audio_url = f"{base_url}/{safe_name}"
+                                        
+                                        # Find if page already has our global preview audio player
+                                        if not hasattr(page, 'local_preview_audio'):
+                                            page.local_preview_audio = ft.Audio(src=audio_url, autoplay=True)
+                                            page.overlay.append(page.local_preview_audio)
+                                            page.update()
+                                        else:
+                                            # We need to pause the old one, change src, and play again
+                                            page.local_preview_audio.pause()
+                                            page.local_preview_audio.src = audio_url
+                                            page.local_preview_audio.update()
+                                            page.local_preview_audio.play()
+                                            
+                                        # We update the icon to show it's playing
+                                        ev.control.icon = ft.Icons.STOP
+                                        ev.control.tooltip = "Stop"
+                                        ev.control.on_click = lambda e: _stop_local_track(e, ev.control)
+                                        page.update()
+
+                                    except Exception as ex:
+                                        logger.error(f"Failed to play local track: {ex}")
+                                        show_snack(f"Failed to play track: {ex}", error=True)
+                                        
+                                def _stop_local_track(ev, btn_control):
+                                    if hasattr(page, 'local_preview_audio'):
+                                        page.local_preview_audio.pause()
+                                    btn_control.icon = ft.Icons.PLAY_ARROW
+                                    btn_control.tooltip = "Play Local File"
+                                    btn_control.on_click = lambda e, p=local_p: _play_local_track(e, p)
+                                    page.update()
+
                                 row.controls.append(
                                     ft.Row(
                                         [
                                             ft.Container(width=20),
-                                            ft.Text(f"Local: {local_mapping[tr_url]}", size=11, selectable=True, color=ft.Colors.GREEN_700),
-                                        ]
+                                            ft.IconButton(
+                                                icon=ft.Icons.PLAY_ARROW,
+                                                tooltip="Play Local File",
+                                                icon_size=16,
+                                                icon_color=ft.Colors.GREEN_700,
+                                                on_click=lambda ev, p=local_p: _play_local_track(ev, p)
+                                            ),
+                                            ft.IconButton(
+                                                icon=ft.Icons.FOLDER_OPEN,
+                                                tooltip="Open Folder Location",
+                                                icon_size=16,
+                                                on_click=lambda ev, p=local_p: _open_local_path(ev, p, folder_only=True)
+                                            ),
+                                            ft.Text(f"Local: {local_p}", size=11, selectable=True, color=ft.Colors.GREEN_700),
+                                        ], tight=True, spacing=0
                                     )
                                 )
 

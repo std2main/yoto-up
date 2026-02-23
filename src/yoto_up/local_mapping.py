@@ -35,10 +35,10 @@ def get_mapping(track_url: str) -> Optional[str]:
 
 def _clean_title(title: str) -> str:
     # remove leading numbers, punctuation, common extensions
-    title = re.sub(r'^\s*\d{1,3}[\s\-\._:\)\]]*', '', title)
+    title = re.sub(r'^\s*\d{1,3}[\s\-\._:\)\]]+', '', title)
     title = re.sub(r'\.(mp3|m4a|wav|aac|flac|ogg)$', '', title, flags=re.IGNORECASE)
-    # lowercase, remove non-alphanumeric, replace multiple spaces
-    title = re.sub(r'[^a-zA-Z0-9]', ' ', title).lower()
+    # lowercase, replace non-alphanumeric with spaces
+    title = re.sub(r'[^a-zA-Z0-9]', ' ', title).title()
     return re.sub(r'\s+', ' ', title).strip()
 
 def _get_audio_duration(file_path: Path) -> Optional[float]:

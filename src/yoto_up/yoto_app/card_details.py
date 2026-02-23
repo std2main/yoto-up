@@ -369,65 +369,20 @@ def make_show_card_details(
                                         show_snack(f"Failed to open path: {ex}", error=True)
 
                                 def _play_local_track(ev, path_str: str):
+                                    import subprocess
+                                    import sys
                                     import os
-                                    import shutil
-                                    from pathlib import Path
-                                    import flet as ft
-                                    from yoto_up.gui import start_preview_server_if_needed
-                                    base_url = start_preview_server_if_needed('.tmp_trim/previews')
-                                    if not base_url:
-                                        show_snack("Failed to start local audio server", error=True)
-                                        return
-                                    
                                     try:
-                                        # Hardlink/copy into the server directory 
-                                        preview_dir = Path('.tmp_trim/previews')
-                                        preview_dir.mkdir(parents=True, exist_ok=True)
-                                        
-                                        # Use a predictable name to avoid runaway storage, but unique enough
-                                        import hashlib
-                                        safe_name = hashlib.md5(path_str.encode()).hexdigest() + Path(path_str).suffix
-                                        serve_path = preview_dir / safe_name
-                                        
-                                        # Link or copy
-                                        if not serve_path.exists():
-                                            try:
-                                                os.link(path_str, serve_path)
-                                            except Exception:
-                                                shutil.copy2(path_str, serve_path)
-                                                
-                                        # Create or update audio control
-                                        audio_url = f"{base_url}/{safe_name}"
-                                        
-                                        # Find if page already has our global preview audio player
-                                        if not hasattr(page, 'local_preview_audio'):
-                                            page.local_preview_audio = ft.Audio(src=audio_url, autoplay=True)
-                                            page.overlay.append(page.local_preview_audio)
-                                            page.update()
+                                        if sys.platform == "win32":
+                                            os.startfile(path_str)
+                                        elif sys.platform == "darwin":
+                                            subprocess.Popen(["open", path_str])
                                         else:
-                                            # We need to pause the old one, change src, and play again
-                                            page.local_preview_audio.pause()
-                                            page.local_preview_audio.src = audio_url
-                                            page.local_preview_audio.update()
-                                            page.local_preview_audio.play()
-                                            
-                                        # We update the icon to show it's playing
-                                        ev.control.icon = ft.Icons.STOP
-                                        ev.control.tooltip = "Stop"
-                                        ev.control.on_click = lambda e: _stop_local_track(e, ev.control)
-                                        page.update()
-
+                                            subprocess.Popen(["xdg-open", path_str])
+                                        show_snack("Playing track in default media player")
                                     except Exception as ex:
                                         logger.error(f"Failed to play local track: {ex}")
                                         show_snack(f"Failed to play track: {ex}", error=True)
-                                        
-                                def _stop_local_track(ev, btn_control):
-                                    if hasattr(page, 'local_preview_audio'):
-                                        page.local_preview_audio.pause()
-                                    btn_control.icon = ft.Icons.PLAY_ARROW
-                                    btn_control.tooltip = "Play Local File"
-                                    btn_control.on_click = lambda e, p=local_p: _play_local_track(e, p)
-                                    page.update()
 
                                 row.controls.append(
                                     ft.Row(

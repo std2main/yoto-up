@@ -1387,7 +1387,7 @@ class YotoAPI:
             duration=int(d) if (d := transcoded_info.get("duration") or upload_info.get("duration")) else None,
             fileSize=int(s) if (s := transcoded_info.get("fileSize") or upload_info.get("fileSize")) else None,
             channels=transcoded_info.get("channels"),
-            format=transcoded_info.get("format"),
+            format="aac" if transcoded_info.get("format") == "opus" else transcoded_info.get("format", "aac"),
             type="audio",
             overlayLabel=str(next_chapter_number),
             display=TrackDisplay(icon16x16="yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q"),

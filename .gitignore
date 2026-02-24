@@ -68,3 +68,6 @@ docs/site/
 storage/
 assets/
 .antigravity_tmp/
+
+# Locally used testing scripts
+scripts/

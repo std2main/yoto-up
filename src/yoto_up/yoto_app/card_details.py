@@ -1,19 +1,57 @@
 import threading
 import asyncio
 import json
+import urllib.parse
+from PIL import Image
+import subprocess
+import sys
+import os
 import traceback
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Callable, Dict, Optional, List
 
 import flet as ft
 import re
 from loguru import logger
 from datetime import datetime, timezone
 
+from yoto_up.models import Card
+from yoto_up.yoto_api import YotoAPI
+
+
+def _open_local_path(path_str: str, folder_only: bool = False, show_snack=None):
+    try:
+        p = path_str if not folder_only else os.path.dirname(path_str)
+        if sys.platform.startswith('darwin'):
+            subprocess.Popen(['open', p])
+        elif sys.platform.startswith('win'):
+            subprocess.Popen(['explorer', p] if folder_only else ['start', '', p], shell=True)
+        else:
+            subprocess.Popen(['xdg-open', p])
+        logger.info(f"Opened local path: {p}")
+    except Exception as ex:
+        logger.error(f"Failed to open local path {p}: {ex}")
+        if show_snack:
+            show_snack(f"Failed to open path: {ex}", error=True)
+
+def _play_local_track(path_str: str, show_snack=None):
+    try:
+        if sys.platform == "win32":
+            os.startfile(path_str)
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", path_str])
+        else:
+            subprocess.Popen(["xdg-open", path_str])
+        if show_snack:
+            show_snack("Playing track in default media player")
+    except Exception as ex:
+        logger.error(f"Failed to play local track: {ex}")
+        if show_snack:
+            show_snack(f"Failed to play track: {ex}", error=True)
 
 def make_show_card_details(
-    page,
+    page: ft.Page,
     api_ref: Dict[str, Any],
     show_snack,
     ensure_api,
@@ -350,39 +388,6 @@ def make_show_card_details(
                             )
                             if local_mapping and tr_url in local_mapping:
                                 local_p = local_mapping[tr_url]
-                                
-                                def _open_local_path(ev, path_str: str, folder_only: bool = False):
-                                    import subprocess
-                                    import sys
-                                    import os
-                                    try:
-                                        p = path_str if not folder_only else os.path.dirname(path_str)
-                                        if sys.platform.startswith('darwin'):
-                                            subprocess.Popen(['open', p])
-                                        elif sys.platform.startswith('win'):
-                                            subprocess.Popen(['explorer', p] if folder_only else ['start', '', p], shell=True)
-                                        else:
-                                            subprocess.Popen(['xdg-open', p])
-                                        logger.info(f"Opened local path: {p}")
-                                    except Exception as ex:
-                                        logger.error(f"Failed to open local path {p}: {ex}")
-                                        show_snack(f"Failed to open path: {ex}", error=True)
-
-                                def _play_local_track(ev, path_str: str):
-                                    import subprocess
-                                    import sys
-                                    import os
-                                    try:
-                                        if sys.platform == "win32":
-                                            os.startfile(path_str)
-                                        elif sys.platform == "darwin":
-                                            subprocess.Popen(["open", path_str])
-                                        else:
-                                            subprocess.Popen(["xdg-open", path_str])
-                                        show_snack("Playing track in default media player")
-                                    except Exception as ex:
-                                        logger.error(f"Failed to play local track: {ex}")
-                                        show_snack(f"Failed to play track: {ex}", error=True)
 
                                 row.controls.append(
                                     ft.Row(
@@ -393,13 +398,13 @@ def make_show_card_details(
                                                 tooltip="Play Local File",
                                                 icon_size=16,
                                                 icon_color=ft.Colors.GREEN_700,
-                                                on_click=lambda ev, p=local_p: _play_local_track(ev, p)
+                                                on_click=lambda ev, p=local_p: _play_local_track(p, show_snack)
                                             ),
                                             ft.IconButton(
                                                 icon=ft.Icons.FOLDER_OPEN,
                                                 tooltip="Open Folder Location",
                                                 icon_size=16,
-                                                on_click=lambda ev, p=local_p: _open_local_path(ev, p, folder_only=True)
+                                                on_click=lambda ev, p=local_p: _open_local_path(p, folder_only=True, show_snack=show_snack)
                                             ),
                                             ft.Text(f"Local: {local_p}", size=11, selectable=True, color=ft.Colors.GREEN_700),
                                         ], tight=True, spacing=0

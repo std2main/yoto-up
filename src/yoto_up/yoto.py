@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import re
 import typer
-from yoto_up.models import Card, CardContent, CardMetadata, Chapter
+from yoto_up.models import Card, CardContent, CardMetadata, Chapter, CardMedia
 from yoto_up.tui import EditCardApp
 from yoto_up.yoto_api import YotoAPI
 from rich import print as rprint
@@ -1437,11 +1437,35 @@ def create_card_from_folder(
             typer.echo("[bold red]No chapters created from media files.[/bold red]")
             raise typer.Exit(code=1)
 
+        total_duration = sum((c.duration or 0) for c in chapters)
+        total_size = sum((c.fileSize or 0) for c in chapters)
+        total_seconds = int(total_duration) if total_duration else 0
+
+        def get_readable_duration(sec: int) -> str:
+            h, rem = divmod(sec, 3600)
+            m, s = divmod(rem, 60)
+            parts = []
+            if h: parts.append(f"{h}h")
+            if m: parts.append(f"{m}m")
+            if s: parts.append(f"{s}s")
+            return " ".join(parts) if parts else "0s"
+
+        card_media = CardMedia(
+            duration=total_seconds or None,
+            fileSize=int(total_size) if total_size else None,
+            readableDuration=get_readable_duration(total_seconds),
+            readableFileSize=round((total_size or 0) / (1024 * 1024), 2) if total_size else None,
+            hasStreams=False
+        )
+
         if existing_card:
+            if not existing_card.metadata:
+                existing_card.metadata = CardMetadata()
+            existing_card.metadata.media = card_media
             result = API.create_or_update_content(existing_card, return_card=True)
         else:
             card_content = CardContent(chapters=chapters)
-            card_metadata = CardMetadata()
+            card_metadata = CardMetadata(media=card_media)
             new_card = Card(
                 title=card_title, content=card_content, metadata=card_metadata
             )

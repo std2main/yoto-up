@@ -245,18 +245,28 @@ async def start_uploads(event, ctx):
         chapters_out = []
         if single_chapter and len(transcoded_results) > 1:
             tracks = []
+            chapter_duration = 0
+            chapter_size = 0
             for i, tr in enumerate(transcoded_results):
                 td = {'title': filename_list[i]} if filename_list and i < len(filename_list) else None
                 track = api.get_track_from_transcoded_audio(tr, track_details=td)
                 track.key = f"{i+1:02}"
                 track.overlayLabel = str(i+1)
+                chapter_duration += (track.duration or 0)
+                chapter_size += (track.fileSize or 0)
                 tracks.append(track)
+            
+            d_val = int(chapter_duration) if chapter_duration else None
+            s_val = int(chapter_size) if chapter_size else None
+            
             chapter = Chapter(
-                key=f"{i+1+existing_chapters:02}",
+                key=f"{existing_chapters+1:02}",
                 title=title_for_single_chapter,
-                overlayLabel=str(i+1+existing_chapters),
+                overlayLabel=str(existing_chapters+1),
                 tracks=tracks,
                 display=ChapterDisplay(icon16x16="yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q"),
+                duration=d_val,
+                fileSize=s_val,
             )
             chapters_out = [chapter]
         else:
@@ -544,7 +554,23 @@ async def start_uploads(event, ctx):
                 total_duration += (t_info.get("duration") or u_info.get("duration") or 0)
                 total_size += (t_info.get("fileSize") or u_info.get("fileSize") or 0)
 
-            card_media = CardMedia(duration=total_duration or None, fileSize=total_size or None)
+            total_seconds = int(total_duration) if total_duration else 0
+            def get_readable_duration(sec: int) -> str:
+                h, rem = divmod(sec, 3600)
+                m, s = divmod(rem, 60)
+                parts = []
+                if h: parts.append(f"{h}h")
+                if m: parts.append(f"{m}m")
+                if s: parts.append(f"{s}s")
+                return " ".join(parts) if parts else "0s"
+            
+            card_media = CardMedia(
+                duration=total_seconds or None,
+                fileSize=int(total_size) if total_size else None,
+                readableDuration=get_readable_duration(total_seconds),
+                readableFileSize=round((total_size or 0) / (1024 * 1024), 2) if total_size else None,
+                hasStreams=False
+            )
 
             # Compose card metadata with gain adjustment notes
             card_metadata = CardMetadata(media=card_media)
@@ -667,6 +693,28 @@ async def start_uploads(event, ctx):
                         for ch in chapters_to_add:
                             card.content.chapters.append(ch)
 
+                    # Update total duration and file size for the whole card
+                    total_duration = sum((ch.duration or 0) for ch in card.content.chapters)
+                    total_size = sum((ch.fileSize or 0) for ch in card.content.chapters)
+                    
+                    total_seconds = int(total_duration) if total_duration else 0
+                    def get_readable_duration(sec: int) -> str:
+                        h, rem = divmod(sec, 3600)
+                        m, s = divmod(rem, 60)
+                        parts = []
+                        if h: parts.append(f"{h}h")
+                        if m: parts.append(f"{m}m")
+                        if s: parts.append(f"{s}s")
+                        return " ".join(parts) if parts else "0s"
+                    
+                    card_media = CardMedia(
+                        duration=total_seconds or None,
+                        fileSize=int(total_size) if total_size else None,
+                        readableDuration=get_readable_duration(total_seconds),
+                        readableFileSize=round((total_size or 0) / (1024 * 1024), 2) if total_size else None,
+                        hasStreams=False
+                    )
+
                     # If there is an existing note, append to it
                     if gain_note_lines:
                         prev_note = getattr(card.metadata, 'note', '') if card.metadata else ''
@@ -676,8 +724,14 @@ async def start_uploads(event, ctx):
                         note_val = (prev_note or '') + '\n'.join(gain_note_lines)
                         if card.metadata:
                             card.metadata.note = str(note_val)
+                            card.metadata.media = card_media
                         else:
-                            card.metadata = CardMetadata(note=str(note_val))
+                            card.metadata = CardMetadata(note=str(note_val), media=card_media)
+                    else:
+                        if card.metadata:
+                            card.metadata.media = card_media
+                        else:
+                            card.metadata = CardMetadata(media=card_media)
 
                     created = api.create_or_update_content(card, return_card=True)
                     status.value = 'Chapters appended'

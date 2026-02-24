@@ -1192,8 +1192,8 @@ class YotoAPI:
             key="01",
             title=track_title,
             trackUrl=f"yoto:#{transcoded_audio['transcodedSha256']}",
-            duration=transcoded_info.get("duration") or upload_info.get("duration"),
-            fileSize=transcoded_info.get("fileSize") or upload_info.get("fileSize"),
+            duration=int(d) if (d := transcoded_info.get("duration") or upload_info.get("duration")) else None,
+            fileSize=int(s) if (s := transcoded_info.get("fileSize") or upload_info.get("fileSize")) else None,
             channels=transcoded_info.get("channels"),
             format=transcoded_info.get("format"),
             type="audio",
@@ -1213,6 +1213,12 @@ class YotoAPI:
             chapter_title = chapter_details["title"]
         else:
             chapter_title = upload_info.get("metadata", {}).get("title") or "Unknown Chapter"
+        
+        d = transcoded_info.get("duration") or upload_info.get("duration")
+        s = transcoded_info.get("fileSize") or upload_info.get("fileSize")
+        duration_val = int(d) if d else None
+        filesize_val = int(s) if s else None
+
         # Merge custom track details
         track_kwargs = dict(
             key="01",
@@ -1220,8 +1226,8 @@ class YotoAPI:
             trackUrl=f"yoto:#{transcoded_audio['transcodedSha256']}",
             format=transcoded_info.get("format", "mp3"),
             type="audio",
-            duration=transcoded_info.get("duration") or upload_info.get("duration"),
-            fileSize=transcoded_info.get("fileSize") or upload_info.get("fileSize"),
+            duration=duration_val,
+            fileSize=filesize_val,
             channels=transcoded_info.get("channels"),
             overlayLabel="1",
             display=TrackDisplay(icon16x16="yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q"),
@@ -1237,6 +1243,8 @@ class YotoAPI:
             overlayLabel="1",
             tracks=[track],
             display=ChapterDisplay(icon16x16="yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q"),
+            duration=duration_val,
+            fileSize=filesize_val,
         )
         if chapter_details:
             chapter_kwargs.update(chapter_details)
@@ -1259,8 +1267,8 @@ class YotoAPI:
             trackUrl=f"yoto:#{transcoded_audio['transcodedSha256']}",
             format=transcoded_info.get("format", "mp3"),
             type="audio",
-            duration=transcoded_info.get("duration") or upload_info.get("duration"),
-            fileSize=transcoded_info.get("fileSize") or upload_info.get("fileSize"),
+            duration=int(d) if (d := transcoded_info.get("duration") or upload_info.get("duration")) else None,
+            fileSize=int(s) if (s := transcoded_info.get("fileSize") or upload_info.get("fileSize")) else None,
             channels=transcoded_info.get("channels"),
             overlayLabel="1",
             display=TrackDisplay(icon16x16="yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q"),
@@ -1287,8 +1295,8 @@ class YotoAPI:
         chapter = Chapter(**chapter_kwargs)
         card_content = CardContent(chapters=[chapter])
         card_media = CardMedia(
-            duration=transcoded_info.get("duration") or upload_info.get("duration"),
-            fileSize=transcoded_info.get("fileSize") or upload_info.get("fileSize"),
+            duration=int(d) if (d := transcoded_info.get("duration") or upload_info.get("duration")) else None,
+            fileSize=int(s) if (s := transcoded_info.get("fileSize") or upload_info.get("fileSize")) else None,
         )
         card_metadata = CardMetadata(media=card_media)
         card = Card(title=card_title, content=card_content, metadata=card_metadata)
@@ -1376,8 +1384,8 @@ class YotoAPI:
             key="01",
             title=upload_info.get("metadata", {}).get("title") or (track_details.get("title") if track_details else file_path.stem),
             trackUrl=f"yoto:#{transcoded_audio['transcodedSha256']}",
-            duration=transcoded_info.get("duration") or upload_info.get("duration"),
-            fileSize=transcoded_info.get("fileSize") or upload_info.get("fileSize"),
+            duration=int(d) if (d := transcoded_info.get("duration") or upload_info.get("duration")) else None,
+            fileSize=int(s) if (s := transcoded_info.get("fileSize") or upload_info.get("fileSize")) else None,
             channels=transcoded_info.get("channels"),
             format=transcoded_info.get("format"),
             type="audio",
@@ -1394,8 +1402,8 @@ class YotoAPI:
             overlayLabel=str(next_chapter_number),
             tracks=[new_track],
             display=ChapterDisplay(icon16x16="yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q"),
-            duration=transcoded_info.get("duration") or upload_info.get("duration"),
-            fileSize=transcoded_info.get("fileSize") or upload_info.get("fileSize"),
+            duration=int(d) if (d := transcoded_info.get("duration") or upload_info.get("duration")) else None,
+            fileSize=int(s) if (s := transcoded_info.get("fileSize") or upload_info.get("fileSize")) else None,
         )
         if chapter_details:
             chapter_kwargs.update(chapter_details)

@@ -35,8 +35,10 @@ class Track(BaseModel):
     display: Optional[TrackDisplay] = None
     overlayLabelOverride: Optional[str] = None
     overlayLabel: Optional[str] = None
-    duration: Optional[float] = None
-    fileSize: Optional[float] = None
+    duration: Optional[int] = None
+    fileSize: Optional[int] = None
+    readableDuration: Optional[str] = None
+    readableFileSize: Optional[float] = None
     channels: Optional[Literal["stereo", "mono", 1, 2]] = None
     ambient: Optional[Ambient] = None
     hasStreams: Optional[bool] = None
@@ -53,8 +55,10 @@ class Chapter(BaseModel):
     tracks: List[Track]
     defaultTrackDisplay: Optional[str] = None
     defaultTrackAmbient: Optional[str] = None
-    duration: Optional[float] = None
-    fileSize: Optional[float] = None
+    duration: Optional[int] = None
+    fileSize: Optional[int] = None
+    readableDuration: Optional[str] = None
+    readableFileSize: Optional[float] = None
     display: Optional[ChapterDisplay] = None
     hidden: Optional[bool] = None
     hasStreams: Optional[bool] = None
@@ -69,8 +73,10 @@ class CardCover(BaseModel):
     imageL: Optional[str] = None
 
 class CardMedia(BaseModel):
-    duration: Optional[float] = None
-    fileSize: Optional[float] = None
+    duration: Optional[int] = None
+    fileSize: Optional[int] = None
+    readableDuration: Optional[str] = None
+    readableFileSize: Optional[float] = None
     hasStreams: Optional[bool] = None
 
 class CardConfig(BaseModel):

@@ -751,7 +751,8 @@ class YotoAPI:
         _call_cb("Transcoding...")
         transcoded_audio = await self.poll_for_transcoding_async(
             upload_id, loudnorm, poll_interval, max_attempts, show_progress,
-            progress=progress, transcode_task_id=transcode_task_id
+            progress=progress, transcode_task_id=transcode_task_id,
+            audio_path=audio_path
         )
         logger.debug(f"Transcoded audio info: {transcoded_audio}")
         _call_cb("Transcode complete")
@@ -766,6 +767,7 @@ class YotoAPI:
         show_progress: bool = False,
         progress: 'Progress' = None,
         transcode_task_id: int | None = None,
+        audio_path: str | None = None,
     ):
         import httpx
         import asyncio
@@ -798,7 +800,7 @@ class YotoAPI:
                 progress.update(transcode_task_id, completed=max_attempts, description="Transcode timed out")
             raise Exception("Transcoding timed out.")
             
-        if "transcodedSha256" in transcoded_audio:
+        if "transcodedSha256" in transcoded_audio and audio_path:
             try:
                 from yoto_up.local_mapping import add_mapping
                 add_mapping(f"yoto:#{transcoded_audio['transcodedSha256']}", audio_path)
@@ -1182,17 +1184,18 @@ class YotoAPI:
         return transcoded_audio
 
     def get_track_from_transcoded_audio(self, transcoded_audio, track_details: Optional[dict] = None) -> Optional[Track]:
-        media_info = transcoded_audio.get("transcodedInfo", {})
-        track_title = media_info.get("metadata", {}).get("title") or "Unknown Track"
+        transcoded_info = transcoded_audio.get("transcodedInfo", {})
+        upload_info = transcoded_audio.get("uploadInfo", {})
+        track_title = upload_info.get("metadata", {}).get("title") or "Unknown Track"
         # Merge custom track details
         track_kwargs = dict(
             key="01",
             title=track_title,
             trackUrl=f"yoto:#{transcoded_audio['transcodedSha256']}",
-            duration=media_info.get("duration"),
-            fileSize=media_info.get("fileSize"),
-            channels=media_info.get("channels"),
-            format=media_info.get("format"),
+            duration=transcoded_info.get("duration") or upload_info.get("duration"),
+            fileSize=transcoded_info.get("fileSize") or upload_info.get("fileSize"),
+            channels=transcoded_info.get("channels"),
+            format=transcoded_info.get("format"),
             type="audio",
             overlayLabel="1",
             display=TrackDisplay(icon16x16="yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q"),
@@ -1202,23 +1205,24 @@ class YotoAPI:
         return Track(**track_kwargs)
 
     def get_chapter_from_transcoded_audio(self, transcoded_audio, track_details: Optional[dict] = None, chapter_details: Optional[dict] = None) -> Optional[Chapter]:
-        media_info = transcoded_audio.get("transcodedInfo", {})
+        transcoded_info = transcoded_audio.get("transcodedInfo", {})
+        upload_info = transcoded_audio.get("uploadInfo", {})
         # Use chapter_details['title'] if provided, else fallback to metadata title, else 'Unknown Chapter'
         chapter_title = None
         if chapter_details and "title" in chapter_details:
             chapter_title = chapter_details["title"]
         else:
-            chapter_title = media_info.get("metadata", {}).get("title") or "Unknown Chapter"
+            chapter_title = upload_info.get("metadata", {}).get("title") or "Unknown Chapter"
         # Merge custom track details
         track_kwargs = dict(
             key="01",
             title=chapter_title,
             trackUrl=f"yoto:#{transcoded_audio['transcodedSha256']}",
-            format=media_info.get("format", "mp3"),
+            format=transcoded_info.get("format", "mp3"),
             type="audio",
-            duration=media_info.get("duration"),
-            fileSize=media_info.get("fileSize"),
-            channels=media_info.get("channels"),
+            duration=transcoded_info.get("duration") or upload_info.get("duration"),
+            fileSize=transcoded_info.get("fileSize") or upload_info.get("fileSize"),
+            channels=transcoded_info.get("channels"),
             overlayLabel="1",
             display=TrackDisplay(icon16x16="yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q"),
         )
@@ -1245,18 +1249,19 @@ class YotoAPI:
         return chapter
 
     def create_card_from_transcoded_audio(self, card_title: str, transcoded_audio, track_details: Optional[dict] = None, chapter_details: Optional[dict] = None):
-        media_info = transcoded_audio.get("transcodedInfo", {})
-        chapter_title = media_info.get("metadata", {}).get("title") or card_title
+        transcoded_info = transcoded_audio.get("transcodedInfo", {})
+        upload_info = transcoded_audio.get("uploadInfo", {})
+        chapter_title = upload_info.get("metadata", {}).get("title") or card_title
         # Merge custom track details
         track_kwargs = dict(
             key="01",
             title=chapter_title,
             trackUrl=f"yoto:#{transcoded_audio['transcodedSha256']}",
-            format=media_info.get("format", "mp3"),
+            format=transcoded_info.get("format", "mp3"),
             type="audio",
-            duration=media_info.get("duration"),
-            fileSize=media_info.get("fileSize"),
-            channels=media_info.get("channels"),
+            duration=transcoded_info.get("duration") or upload_info.get("duration"),
+            fileSize=transcoded_info.get("fileSize") or upload_info.get("fileSize"),
+            channels=transcoded_info.get("channels"),
             overlayLabel="1",
             display=TrackDisplay(icon16x16="yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q"),
         )
@@ -1282,8 +1287,8 @@ class YotoAPI:
         chapter = Chapter(**chapter_kwargs)
         card_content = CardContent(chapters=[chapter])
         card_media = CardMedia(
-            duration=media_info.get("duration"),
-            fileSize=media_info.get("fileSize"),
+            duration=transcoded_info.get("duration") or upload_info.get("duration"),
+            fileSize=transcoded_info.get("fileSize") or upload_info.get("fileSize"),
         )
         card_metadata = CardMetadata(media=card_media)
         card = Card(title=card_title, content=card_content, metadata=card_metadata)
@@ -1359,7 +1364,8 @@ class YotoAPI:
             logger.info(f"Uploading audio to: {audio_upload_url}")
             self.upload_audio_file(audio_upload_url, audio_bytes)
         transcoded_audio = self.poll_for_transcoding(upload_id, loudnorm, poll_interval, max_attempts)
-        media_info = transcoded_audio.get("transcodedInfo", {})
+        transcoded_info = transcoded_audio.get("transcodedInfo", {})
+        upload_info = transcoded_audio.get("uploadInfo", {})
 
         # Determine next chapter key
         chapters = card.content.chapters if card.content and card.content.chapters else []
@@ -1368,12 +1374,12 @@ class YotoAPI:
         # Prepare new chapter with the uploaded audio as a track
         track_kwargs = dict(
             key="01",
-            title=media_info.get("metadata", {}).get("title") or (track_details.get("title") if track_details else file_path.stem),
+            title=upload_info.get("metadata", {}).get("title") or (track_details.get("title") if track_details else file_path.stem),
             trackUrl=f"yoto:#{transcoded_audio['transcodedSha256']}",
-            duration=media_info.get("duration"),
-            fileSize=media_info.get("fileSize"),
-            channels=media_info.get("channels"),
-            format=media_info.get("format"),
+            duration=transcoded_info.get("duration") or upload_info.get("duration"),
+            fileSize=transcoded_info.get("fileSize") or upload_info.get("fileSize"),
+            channels=transcoded_info.get("channels"),
+            format=transcoded_info.get("format"),
             type="audio",
             overlayLabel=str(next_chapter_number),
             display=TrackDisplay(icon16x16="yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q"),
@@ -1388,8 +1394,8 @@ class YotoAPI:
             overlayLabel=str(next_chapter_number),
             tracks=[new_track],
             display=ChapterDisplay(icon16x16="yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q"),
-            duration=media_info.get("duration"),
-            fileSize=media_info.get("fileSize"),
+            duration=transcoded_info.get("duration") or upload_info.get("duration"),
+            fileSize=transcoded_info.get("fileSize") or upload_info.get("fileSize"),
         )
         if chapter_details:
             chapter_kwargs.update(chapter_details)
@@ -1465,7 +1471,7 @@ class YotoAPI:
             self.upload_audio_file(audio_upload_url, audio_bytes)
         transcoded_audio = self.poll_for_transcoding(upload_id, loudnorm, poll_interval, max_attempts, show_progress)
         
-        if transcoded_audio and "transcodedSha256" in transcoded_audio:
+        if transcoded_audio and "transcodedSha256" in transcoded_audio and audio_path:
             try:
                 from yoto_up.local_mapping import add_mapping
                 add_mapping(f"yoto:#{transcoded_audio['transcodedSha256']}", audio_path)
@@ -2316,9 +2322,9 @@ class YotoAPI:
         is known in the metadata, try to download and cache it, then return the path.
         Returns None if no cache path can be determined.
         """
-        logger.debug(f"Getting icon cache path for field: {icon_field}")
+        # logger.debug(f"Getting icon cache path for field: {icon_field}")
         if not icon_field:
-            logger.debug("No icon_field provided")
+            # logger.debug("No icon_field provided")
             return None
         try:
             # Accept values like 'yoto:#<mediaId>' or just '<mediaId>'
@@ -2330,7 +2336,7 @@ class YotoAPI:
             for meta_name in ("icon_metadata.json", "user_icon_metadata.json"):
                 meta_path = cache_dir / meta_name
                 if not meta_path.exists():
-                    logger.debug(f"Metadata file not found: {meta_path}")
+                    # logger.debug(f"Metadata file not found: {meta_path}")
                     continue
                 try:
                     with meta_path.open("r") as f:
@@ -2344,7 +2350,7 @@ class YotoAPI:
                         if icon.get("cache_path"):
                             p = Path(icon.get("cache_path"))
                             if p.exists():
-                                logger.debug(f"Found cached icon (from cache_path) at: {p}")
+                                # logger.debug(f"Found cached icon (from cache_path) at: {p}")
                                 return p
                         # Otherwise try to use the url field
                         url = icon.get("url") or icon.get("img_url")
@@ -2354,7 +2360,7 @@ class YotoAPI:
                         ext = Path(url).suffix or ".png"
                         p = cache_dir / f"{url_hash}{ext}"
                         if p.exists():
-                            logger.debug(f"Found cached icon at: {p}")
+                            # logger.debug(f"Found cached icon at: {p}")
                             return p
                         # Try to download now
                         try:
@@ -2367,7 +2373,7 @@ class YotoAPI:
                             return p if p.exists() else None
 
             # Check upload cache (icons uploaded via this tool)
-            logger.debug("Checking upload cache for icon")
+            # logger.debug("Checking upload cache for icon")
             upload_cache = self._load_icon_upload_cache()
             for sha, data in (upload_cache or {}).items():
                 if str(data.get("mediaId")) == media_id:
@@ -2388,7 +2394,7 @@ class YotoAPI:
                         logger.error(f"Error getting icon cache path for {icon_field}: {ex}")
                         return p if p.exists() else None
             
-            logger.debug(f"No matching icon found for mediaId: {media_id}")
+            # logger.debug(f"No matching icon found for mediaId: {media_id}")
         except Exception as ex:
             logger.error(f"Error getting icon cache path: {ex}")
             return None

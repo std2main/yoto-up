@@ -3,7 +3,7 @@ import os
 import traceback
 import tempfile
 import shutil
-from yoto_up.models import Chapter, ChapterDisplay, Card, CardContent, CardMetadata
+from yoto_up.models import Chapter, ChapterDisplay, Card, CardContent, CardMetadata, CardMedia
 from yoto_up.yoto_api import YotoAPI
 from yoto_up.normalization import AudioNormalizer
 from flet import Text, ElevatedButton, AlertDialog, Column
@@ -534,10 +534,23 @@ async def start_uploads(event, ctx):
                 api=api,
                 single_chapter=single_chapter,
             )
+            # Aggregate media duration and fileSize for the card level metadata
+            total_duration = 0
+            total_size = 0
+            for tr in transcoded_results:
+                if not tr: continue
+                t_info = tr.get("transcodedInfo", {})
+                u_info = tr.get("uploadInfo", {})
+                total_duration += (t_info.get("duration") or u_info.get("duration") or 0)
+                total_size += (t_info.get("fileSize") or u_info.get("fileSize") or 0)
+
+            card_media = CardMedia(duration=total_duration or None, fileSize=total_size or None)
+
             # Compose card metadata with gain adjustment notes
-            card_metadata = None
+            card_metadata = CardMetadata(media=card_media)
             if gain_note_lines:
-                card_metadata = CardMetadata(note='\n'.join(gain_note_lines))
+                card_metadata.note = '\n'.join(gain_note_lines)
+
             card = Card(
                 title=title,
                 content=CardContent(chapters=chapters),

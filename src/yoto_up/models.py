@@ -26,7 +26,7 @@ class Track(BaseModel):
             display=TrackDisplay(icon16x16="yoto:#ZuVmuvnoFiI4el6pBPvq0ofcgQ18HjrCmdPEE7GCnP8")
         )
     """
-    title: str
+    title: Optional[str] = None
     trackUrl: str
     key: str
     format: str
